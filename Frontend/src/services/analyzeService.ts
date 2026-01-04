@@ -18,7 +18,7 @@ export const analyzeImage = async (imageFile: File): Promise<AnalyzeResponse> =>
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await instance.post<AnalyzeResponse>('/analyze', formData);
+    const response = await instance.post<AnalyzeResponse>('/api/v1/analyze', formData);
 
     return response.data;
 };
