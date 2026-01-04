@@ -1,24 +1,51 @@
 import React, { useState, useRef } from "react";
+import { analyzeImage, type AnalyzeResponse } from "../services/analyzeService";
 
 const Tracker = () => {
     const [image, setImage] = useState<string | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const [data, setData] = useState<AnalyzeResponse | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setData(null);
+            setError(null);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImage(reader.result as string);
             };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(selectedFile);
         }
     };
 
     const handleRemoveImage = () => {
         setImage(null);
+        setFile(null);
+        setData(null);
+        setError(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
+        }
+    };
+
+    const handleAnalyze = async () => {
+        if (!file) return;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await analyzeImage(file);
+            setData(result);
+        } catch (err) {
+            setError("Failed to analyze image. Please try again.");
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -61,7 +88,7 @@ const Tracker = () => {
                                 type='file'
                                 ref={fileInputRef}
                                 className='hidden'
-                                accept='image/*'
+                                accept='image/jpeg, image/png, image/webp, image/heic, image/heif'
                                 onChange={handleImageUpload}
                             />
 
@@ -127,46 +154,58 @@ const Tracker = () => {
                             )}
                         </div>
 
+                        {/* Error Message */}
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-center text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Action Button */}
                         <div className='mt-8'>
                             <button
-                                disabled={!image}
+                                onClick={handleAnalyze}
+                                disabled={!image || loading}
                                 className={`w-full py-4 px-6 rounded-xl font-bold text-lg tracking-wide shadow-lg transition-all duration-300 flex items-center justify-center gap-3
-                  ${!image
+                  ${!image || loading
                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                         : "bg-linear-to-r from-orange-500 to-red-600 text-white hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]"
                                     }
                 `}>
-                                <svg
-                                    xmlns='http://www.w3.org/2000/svg'
-                                    width='20'
-                                    height='20'
-                                    viewBox='0 0 24 24'
-                                    fill='none'
-                                    stroke='currentColor'
-                                    strokeWidth='2'
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'>
-                                    <path d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' />
-                                    <polyline points='3.27 6.96 12 12.01 20.73 6.96' />
-                                    <line x1='12' y1='22.08' x2='12' y2='12' />
-                                </svg>
-                                Analyze Nutrition
+                                {loading ? (
+                                    <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                                ) : (
+                                    <svg
+                                        xmlns='http://www.w3.org/2000/svg'
+                                        width='20'
+                                        height='20'
+                                        viewBox='0 0 24 24'
+                                        fill='none'
+                                        stroke='currentColor'
+                                        strokeWidth='2'
+                                        strokeLinecap='round'
+                                        strokeLinejoin='round'>
+                                        <path d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' />
+                                        <polyline points='3.27 6.96 12 12.01 20.73 6.96' />
+                                        <line x1='12' y1='22.08' x2='12' y2='12' />
+                                    </svg>
+                                )}
+                                {loading ? "Analyzing..." : "Analyze Nutrition"}
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Nutrition Grid */}
-                {image && (
+                {data && (
                     <div className='mt-12 grid grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-3xl'>
                         {[
-                            { label: "Food Name", value: "Biriyani", unit: "" },
-                            { label: "Total Quantity", value: "100", unit: "gm" },
-                            { label: "Total Calorie", value: "350", unit: "kCal" },
-                            { label: "Protein", value: "12", unit: "gm" },
-                            { label: "Fat", value: "18", unit: "gm" },
-                            { label: "Carbs", value: "45", unit: "gm" },
+                            { label: "Food Name", value: data.foodName },
+                            { label: "Total Quantity", value: data.quantity },
+                            { label: "Calories", value: Math.round(data.nutrition?.Calories?.quantity || 0), unit: data.nutrition?.Calories?.unit || "kcal" },
+                            { label: "Protein", value: Math.round(data.nutrition?.Protein?.quantity || 0), unit: data.nutrition?.Protein?.unit || "g" },
+                            { label: "Fat", value: Math.round(data.nutrition?.Fat?.quantity || 0), unit: data.nutrition?.Fat?.unit || "g" },
+                            { label: "Carbs", value: Math.round(data.nutrition?.Carbohydrates?.quantity || 0), unit: data.nutrition?.Carbohydrates?.unit || "g" },
                         ].map((item, index) => (
                             <div key={index} className="bg-white/60 backdrop-blur-md border border-white/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
                                 <p className="text-slate-500 text-sm uppercase tracking-wider font-semibold mb-1">{item.label}</p>
