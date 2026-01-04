@@ -5,13 +5,10 @@ export interface IFood extends Document {
     foodName: string;
     quantity: string;
     nutrition: {
-        calories: number;
-        totalNutrients: {
-            PROCNT: { quantity: number; unit: string };
-            FAT: { quantity: number; unit: string };
-            CHOCDF: { quantity: number; unit: string };
-        };
-        [key: string]: any;
+        Calories: { quantity: number; unit: string };
+        Protein: { quantity: number; unit: string };
+        Fat: { quantity: number; unit: string };
+        Carbohydrates: { quantity: number; unit: string };
     };
     createdAt: Date;
     updatedAt: Date;
@@ -35,7 +32,7 @@ const FoodSchema = new Schema(
             required: true,
         },
         nutrition: {
-            type: Schema.Types.Mixed,
+            type: Object,
             required: true,
         },
     },
